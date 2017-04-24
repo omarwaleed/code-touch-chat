@@ -4,14 +4,73 @@ const axios = require('axios');
 const socket = require('socket.io');
 
 class App extends React.Component {
+
+	let socket = io();
+
 	constructor(){
 		super();
-	    var state = {
+	    let state = {
 	        everyone: [],
 	        selected: ''
 	    };
-	    var socket = io();
+		this.handleSubmit = this.handleSubmit.bind(this);
 	}
+
+	handleSubmit(event){
+		event.preventDefault();
+		let m = document.getElementById('m').value;
+		console.log('submit');
+		if(this.state.selected === ""){
+			this.state.everyone.push({sender: "you", msg: m});
+			socket.emit('chat message', {message: m, for: $('#username')[0].value});
+			document.getElementById('messages').innerHTML += ('<li><h3>You: '+m+'</h3></li>');
+		} else {
+			console.log('define',this.state[this.state.selected], this.state.selected);
+			if(this.state[this.state.selected] === undefined){
+				this.setState({this.state[this.state.selected]: [{sender: "you", msg: m}]})
+			} else {
+				this.setState({this.state[this.state.selected]: ([...this.state[this.state.selected]].push({sender: "you", msg:m}))});
+			}
+			document.getElementById('messages').innerHTML += ('<li><h3>PRIVATE You: '+m+'</h3></li>');
+			// this.state[this.state.selected] = [...this.state[this.state.selected]].push({sender: "you", msg:m}) || [{sender: "you", msg: m}];
+			socket.emit('chat message', {message: m, for: $('#username')[0].value, to: this.state.selected})
+		}
+		// log('here');
+		m.val('');
+		// return false;
+	}
+
+	socket.on('chat message', function(msg){
+		// console.log('got message', msg)
+		var sender = (msg.for || 'anon')
+		var isPrivate = (msg.to !== undefined)? "PRIVATE ": "";
+		$('#messages').append($('<li>').text(isPrivate + sender + ": "+msg.message));
+		console.log(state.everyone);
+		let array = [...this.state.everyone, {sender: sender, msg: msg.message}]
+		this.setState({everyone: array});
+	});
+	socket.on('typing', function(content){
+		console.log('typing received',content.user);
+		document.getElementById('typing').innerHTML = (content.user+' is typing');
+		setTimeout(function(){
+			document.getElementById('typing').innerHTML = '';
+			// console.log('hidden');
+		}, 5000)
+	});
+	socket.on('user connection', function(msg){
+		document.getElementById('connection').innerHTML += ('<br />'+msg);
+		setTimeout(()=>{
+			document.getElementById('connection').innerHTML = '';
+		}, 5000);
+	});
+	socket.on('users', function(data){
+		let out = '';
+		for (var i = 0; i < data.length; i++) {
+			out += `<li onclick="setSelected('${data[i]}')">`+data[i]+'</li>'
+		}
+		document.getElementById('connectedusers').innerHTML = out;
+		// console.log('sockets are ', data);
+	});
 
 	render(){
 		return (

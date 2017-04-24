@@ -5,10 +5,10 @@ const minify = require('gulp-minify');
 
 gulp.task('bundle', function(){
 
-	gulp.src('./public/require.js')
+	gulp.src('./public/App.jsx')
 	.pipe(browserify())
 	.pipe(babel({
-		presets: ['es2016']
+		presets: ['react', 'es2016']
 	}))
 	.pipe(minify())
 	.pipe(gulp.dest('./public/bundle'))

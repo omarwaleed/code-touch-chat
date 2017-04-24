@@ -1,0 +1,27 @@
+{
+  "name": "socket-session",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.16.1",
+    "express": "^4.15.2",
+    "jquery": "^3.2.1",
+    "mongoose": "^4.8.6",
+    "react": "^15.5.4",
+    "react-dom": "^15.5.4",
+    "socket.io": "^1.7.3"
+  },
+  "devDependencies": {
+    "babel-preset-es2016": "^6.24.1",
+    "gulp": "^3.9.1",
+    "gulp-babel": "^6.1.2",
+    "gulp-browserify": "^0.5.1",
+    "gulp-minify": "0.0.15"
+  }
+}

@@ -132,7 +132,7 @@
                 switch (message.from) {
                     case window.username:
                         if($scope.messageStore[message.to] !== undefined){
-                            $scope.messageStore[message.to] = [...$scope.messageStore[window.username], message]
+                            $scope.messageStore[message.to].push(message)
                         } else {
                             $scope.messageStore[message.to] = [message]
                         }
@@ -161,7 +161,9 @@
             }
             $scope.setUsersList = function(content){
                 console.log('setting user list', content);
-                $scope.userList = content;
+                $scope.$apply(function(){
+                    $scope.userList = content;    
+                })
             }
             $scope.sendUsername = function(username){
                 $http.get('api/get/users/username').then(
@@ -231,7 +233,7 @@
                             if($scope.messageStore[whereToAdd] !== undefined){
                                 $scope.messageStore[whereToAdd].push(allMessages[i]);
                             } else {
-                                $scope.messageStore[whereToAdd] = [allMessages[i]];    
+                                $scope.messageStore[whereToAdd] = [allMessages[i]];
                             }
                         }
                     }

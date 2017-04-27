@@ -41,7 +41,7 @@ app.get('/api/get/messages/:username', function(req, res){
         if(err){
             res.status(400);
         }
-        console.log("All Messages is",docs);
+        // console.log("All Messages is",docs);
         res.send([...docs]);
     })
 });
@@ -113,13 +113,24 @@ io.on('connection', function(socket){
         socket.emit('users', Object.keys(io.socket.sockets));
     })
     socket.on('disconnect', function(){
-        console.log('a user disconnected');
+        console.log('a user disconnected', socket.id, socketStore);
         // io.emit('user connection', 'user disconnected');
         // io.emit('users', Object.keys(io.sockets.sockets));
-        for (var i = 0; i < socketStore.length; i++) {
-            if(socketStore[i].id === socket.id)
-            socketStore[i].status = 'offline';
+        let found = false;
+        for (let i = 0; i < socketStore.length; i++) {
+            if(socketStore[i].id === socket.id){
+                found = true;
+                socketStore[i].status = 'offline';
+                User.findOne({name: socketStore[i].username}, function(err, doc){
+                    doc.online = false;
+                    doc.save()
+                })
+                User.update({name: socketStore[i].username}, {$set: {online: false}}, function(err, updatedDoc){
+                    if (err) return console.log(err);
+                });
+            }
         }
+        console.log('disconnecting store', found, socketStore);
         io.emit('store', socketStore);
     });
     socket.on('chat message', function(msg){
@@ -141,6 +152,7 @@ io.on('connection', function(socket){
         for (var i = 0; i < socketStore.length; i++) {
             if (socketStore[i].username === username) {
                 socketStore[i].status = 'online';
+                socketStore[i].id = socket.id;
                 found = true;
                 console.log("entry found", socketStore);
                 break;

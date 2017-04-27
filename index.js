@@ -35,8 +35,9 @@ app.get('/', function(req, res){
     res.render('index');
 });
 
-app.get('/api/get/messages', function(req, res){
-    Message.find({}, function(err, docs){
+app.get('/api/get/messages/:username', function(req, res){
+    // get all user messages
+    Message.find({ $or: [{to: ''}, {to: req.params.username}] }, function(err, docs){
         if(err){
             res.status(400);
         }
@@ -58,38 +59,6 @@ app.post('/api/post/messages', function(req, res){
     });
     res.status(200);
 })
-
-// app.get('/api/get/users/:username', function(req, res){
-//     let username = req.params.username;
-//
-//     console.log("sent username");
-//
-//     User.find({name: username}, function(err, docs){
-//         if(err){
-//             console.log(err);
-//             // not found
-//             res.status(404);
-//         }
-//         if(docs.length < 1){
-//             console.log(docs.length);
-//             User.create({
-//                 user: username
-//             }, function(err, result){
-//                 if(err){
-//                     console.log(err);
-//                     // bad request
-//                     res.status(400);
-//                 } else {
-//                     // created
-//                     res.status(201);
-//                 }
-//             })
-//         } else {
-//             console.log("username found", docs)
-//         }
-//     });
-//
-// });
 
 app.get('/api/get/messages/:to/:from', function(req, res){
     Message.find({to: req.params.to, from: req.params.from}, function(err, docs){
@@ -154,14 +123,10 @@ io.on('connection', function(socket){
         io.emit('store', socketStore);
     });
     socket.on('chat message', function(msg){
-        console.log('id of sender is '+socket.id);
-        console.log(Object.keys(io.sockets.sockets));
-        if(msg.to !== undefined){
-            socket.to(msg.to).emit('chat message', msg);
-        } else {
-            socket.broadcast.emit('chat message', msg);
-        }
-        console.log('msg: ', msg);
+
+        // I could have used socket to put the message in the database but instead used API approach
+        msg['content'] = msg.message;
+        io.emit('chat message', msg);
     });
     socket.on('typing', function(content){
         socket.broadcast.emit('typing', content);

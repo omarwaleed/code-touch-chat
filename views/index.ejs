@@ -23,7 +23,7 @@
             <span style="font-size: 30px;">Messages</span>
             <div><span ng-model="messageError">{{messageError}}</span></div>
             <ul id="messages">
-                <li ng-repeat="msg in messages">{{msg}}</li>
+                <li ng-repeat="msg in messages">{{msg.from}}: {{msg.content}}</li>
             </ul>
             <h1 id="typing" ng-model="typing">{{typing}}</h1>
             <h1 id="connection"></h1>
@@ -32,12 +32,12 @@
             <!-- dirty way of calling function -->
             <!-- <button type="button" name="button" style="display: none;" ng-click="sendUsername()"></button> -->
             <span style="font-size: 30px;" onclick="clearSelected()">Users</span>
-            <button type="button" name="button" ng-click="setToAll()">To Everyone</button>
+            <button type="button" name="button" ng-click="setTarget('')">To Everyone</button>
             <span ng-model="target">{{target || "Everyone"}}</span>
             <div><span ng-model="userError"></span></div>
             <ul id="connectedusers" style="margin-top: 20px;">
                 <!-- <li ng-repeat="user in users"><span ng-click="setTarget({{user.name}})">{{user.name}}</span></li> -->
-                <li ng-repeat="user in userList" ng-click="setTarget('user.username')"><span>{{user.username}}</span> - <span>{{user.status}}</span></li>
+                <li ng-repeat="user in userList"><span ng-click="setTarget(user.username)">{{user.username}}</span> - <span>{{user.status}}</span></li>
             </ul>
         </div>
     </div>
@@ -56,14 +56,14 @@
     };
     var socket = io();
     $(function () {
-        socket.on('chat message', function(msg){
-            // console.log('got message', msg)
-            var sender = (msg.for || 'anon')
-            var isPrivate = (msg.to !== undefined)? "PRIVATE ": "";
-            $('#messages').append($('<li>').text(isPrivate + sender + ": "+msg.message));
-            console.log(state.everyone);
-            state.everyone.push({sender: sender, msg: msg.message})
-        });
+        // socket.on('chat message', function(msg){
+        //     // console.log('got message', msg)
+        //     var sender = (msg.for || 'anon')
+        //     var isPrivate = (msg.to !== undefined)? "PRIVATE ": "";
+        //     $('#messages').append($('<li>').text(isPrivate + sender + ": "+msg.message));
+        //     console.log(state.everyone);
+        //     state.everyone.push({sender: sender, msg: msg.message})
+        // });
         socket.on('typing', function(content){
             console.log('typing received',content.user);
             document.getElementById('typing').innerHTML = (content.user+' is typing');
@@ -72,17 +72,6 @@
                 // console.log('hidden');
             }, 5000)
         });
-        // socket.on('store', function(content){
-        //     console.log("In store event", content);
-        //     angular.element(document.getElementById('app')).scope().setUsers(content);
-            // var inside = "";
-            // for (var i = 0; i < content.length; i++) {
-            //     inside += '<button ng-click="setTarget(\''+content[i].username+'\')">'+content[i].username+' - '+content[i].status+'</button><br />'
-            // }
-            // document.getElementById('connectedusers').innerHTML = inside;
-
-            // $scope.setUsers(content);
-        // })
     });
     function emitTyping(){
         // let username = document.getElementById('username').value;
@@ -108,6 +97,8 @@
             $scope.userError = "";
             $scope.messageError = "";
             $scope.target = "";
+            $scope.publicMessages = [];
+            $scope.messageStore = {};
 
             socket.on('store', function(content){
                 console.log('angular socket', content);
@@ -119,6 +110,41 @@
                 setTimeout(()=>{
                     document.getElementById('connection').innerHTML = '';
                 }, 5000);
+            });
+
+            socket.on('chat message', function(message){
+                switch (message.to) {
+                    case '':
+                        // to everyone
+                        $scope.publicMessages.push(message)
+                        break;
+                    case window.username:
+                        // to me
+                        $scope.messageStore[message.from] = [...$scope.messageStore[message.from], message] || [message];
+                        break;
+                    default:
+                        // ignore message
+                }
+                switch (message.from) {
+                    case window.username:
+                        if($scope.messageStore[window.username] !== undefined){
+                            $scope.messageStore[window.username] = [...$scope.messageStore[window.username], message]
+                        } else {
+                            $scope.messageStore[window.username] = [message]
+                        }
+                        break;
+                    default:
+                    // ignore
+                }
+                $scope.$apply(function(){
+                    // forced to force render the variable. Not updating alone
+                    if($scope.target === ''){
+                        $scope.messages = $scope.publicMessages
+                        // console.log('current', $scope.messages, 'public', $scope.publicMessages)
+                    } else {
+                        $scope.messages = $scope.messageStore[$scope.target]
+                    }
+                })
             });
 
             $scope.addUser = function(user){
@@ -145,6 +171,12 @@
             }
             $scope.setTarget = function(name){
                 $scope.target = name;
+                console.log('setting target', name);
+                if(name === ''){
+                    $scope.messages = $scope.publicMessages;
+                } else {
+                    $scope.messages = $scope.messageStore[name];
+                }
                 // $route.reload();
             }
             $scope.handleSubmit = function(e){
@@ -152,13 +184,15 @@
                 var entry = $scope.input;
                 if(entry !== ''){
                     $scope.input = "";
-                    $http({method: 'POST', url: 'api/post/messages', data: {message: entry, to: $scope.target, from: window.username}, cache: false}).then(
+                    $http({method: 'POST', url: 'api/post/messages', data: {message: entry, to: $scope.target, from: window.username}, cache: false})
+                    .then(
                         function(response){
                             console.log('message done', response);
                         }, function(response){
                             console.log('error', response)
                         }
                     )
+                    socket.emit('chat message', {message: entry, to: $scope.target, from: window.username})
                 }
                 // return false;
             }
@@ -174,10 +208,17 @@
                     console.log("HTTP GET FAILED", response);
                 }
             )
-            $http.get('api/get/messages').then(
+            $http.get('api/get/messages/'+window.username).then(
                 function(response){
                     // resposnse success
-                    $scope.messages = response.data;
+                    var allMessages = response.data;
+                    for (var i = 0; i < allMessages.length; i++) {
+                        if(allMessages[i].to === ''){
+                            $scope.publicMessages.push(allMessages[i])
+                        } else {
+                            $scope.messageStore[allMessages[i].from] = [...$scope.messageStore[allMessages[i].from] ,allMessages[i]];
+                        }
+                    }
                     console.log("HTTP GET SUCCESS", response.data);
                 }, function(response){
                     // response failed
@@ -185,6 +226,7 @@
                     console.log("HTTP GET FAILED", response);
                 }
             );
+            $scope.messages = $scope.publicMessages;
 
         });
     </script>

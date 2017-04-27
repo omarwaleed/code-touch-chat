@@ -120,17 +120,21 @@
                         break;
                     case window.username:
                         // to me
-                        $scope.messageStore[message.from] = [...$scope.messageStore[message.from], message] || [message];
+                        if($scope.messageStore[message.from] !== undefined){
+                            $scope.messageStore[message.from] = [...$scope.messageStore[message.from], message];
+                        } else {
+                            $scope.messageStore[message.from] = [message];
+                        }
                         break;
                     default:
                         // ignore message
                 }
                 switch (message.from) {
                     case window.username:
-                        if($scope.messageStore[window.username] !== undefined){
-                            $scope.messageStore[window.username] = [...$scope.messageStore[window.username], message]
+                        if($scope.messageStore[message.to] !== undefined){
+                            $scope.messageStore[message.to] = [...$scope.messageStore[window.username], message]
                         } else {
-                            $scope.messageStore[window.username] = [message]
+                            $scope.messageStore[message.to] = [message]
                         }
                         break;
                     default:
@@ -175,6 +179,13 @@
                 if(name === ''){
                     $scope.messages = $scope.publicMessages;
                 } else {
+                    $http.get('api/get/messages/'+window.username+'/'+$scope.target).then(
+                        function(response){
+
+                        }, function(response){
+
+                        }
+                    )
                     $scope.messages = $scope.messageStore[name];
                 }
                 // $route.reload();
@@ -216,7 +227,12 @@
                         if(allMessages[i].to === ''){
                             $scope.publicMessages.push(allMessages[i])
                         } else {
-                            $scope.messageStore[allMessages[i].from] = [...$scope.messageStore[allMessages[i].from] ,allMessages[i]];
+                            var whereToAdd = (allMessages[i].from === window.username)? allMessages[i].to: allMessages[i].from;
+                            if($scope.messageStore[whereToAdd] !== undefined){
+                                $scope.messageStore[whereToAdd].push(allMessages[i]);
+                            } else {
+                                $scope.messageStore[whereToAdd] = [allMessages[i]];    
+                            }
                         }
                     }
                     console.log("HTTP GET SUCCESS", response.data);

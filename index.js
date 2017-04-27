@@ -37,7 +37,7 @@ app.get('/', function(req, res){
 
 app.get('/api/get/messages/:username', function(req, res){
     // get all user messages
-    Message.find({ $or: [{to: ''}, {to: req.params.username}] }, function(err, docs){
+    Message.find({ $or: [{to: ''}, {to: req.params.username}, {from: req.params.username}] }, function(err, docs){
         if(err){
             res.status(400);
         }

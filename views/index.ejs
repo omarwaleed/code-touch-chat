@@ -1,0 +1,206 @@
+<!doctype html>
+<html>
+<head>
+    <title>Socket.IO chat</title>
+    <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font: 13px Helvetica, Arial; }
+    form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
+    #m { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
+    form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+    #messages { list-style-type: none; margin: 0; padding: 0; }
+    #messages li { padding: 5px 10px; }
+    #messages li:nth-child(odd) { background: #eee; }
+    #username { border: 0; padding: 10px; width: 15%; margin-right: .5%; }
+    #submit { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+    </style>
+    <script src="angular.min.js"></script>
+</head>
+<body ng-app="Chat" ng-controller="mainCtrl" id="app">
+    <!-- <div id="app"></div> -->
+    <div style="display: flex; flex: 1; width: 100%; space-between: center;">
+        <div style="flex: 7;">
+            <span style="font-size: 30px;">Messages</span>
+            <div><span ng-model="messageError">{{messageError}}</span></div>
+            <ul id="messages">
+                <li ng-repeat="msg in messages">{{msg}}</li>
+            </ul>
+            <h1 id="typing" ng-model="typing">{{typing}}</h1>
+            <h1 id="connection"></h1>
+        </div>
+        <div style="flex: 3; align-content: center;">
+            <!-- dirty way of calling function -->
+            <!-- <button type="button" name="button" style="display: none;" ng-click="sendUsername()"></button> -->
+            <span style="font-size: 30px;" onclick="clearSelected()">Users</span>
+            <button type="button" name="button" ng-click="setToAll()">To Everyone</button>
+            <span ng-model="target">{{target || "Everyone"}}</span>
+            <div><span ng-model="userError"></span></div>
+            <ul id="connectedusers" style="margin-top: 20px;">
+                <!-- <li ng-repeat="user in users"><span ng-click="setTarget({{user.name}})">{{user.name}}</span></li> -->
+                <li ng-repeat="user in userList" ng-click="setTarget('user.username')"><span>{{user.username}}</span> - <span>{{user.status}}</span></li>
+            </ul>
+        </div>
+    </div>
+    <form action="" id="form" ng-submit="handleSubmit($event)">
+        <input id="m" autocomplete="off" onchange="emitTyping()" ng-model="input" /><button ng-click="sendMessage()">Send</button>
+    </form>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="jquery.min.js"></script>
+    <!-- <script src="bundle/require-min.js"></script> -->
+    <!-- <script src="webpack/client.min.js"></script> -->
+    <script>
+    var state = {
+        everyone: [],
+        selected: ''
+    };
+    var socket = io();
+    $(function () {
+        socket.on('chat message', function(msg){
+            // console.log('got message', msg)
+            var sender = (msg.for || 'anon')
+            var isPrivate = (msg.to !== undefined)? "PRIVATE ": "";
+            $('#messages').append($('<li>').text(isPrivate + sender + ": "+msg.message));
+            console.log(state.everyone);
+            state.everyone.push({sender: sender, msg: msg.message})
+        });
+        socket.on('typing', function(content){
+            console.log('typing received',content.user);
+            document.getElementById('typing').innerHTML = (content.user+' is typing');
+            setTimeout(function(){
+                document.getElementById('typing').innerHTML = '';
+                // console.log('hidden');
+            }, 5000)
+        });
+        // socket.on('store', function(content){
+        //     console.log("In store event", content);
+        //     angular.element(document.getElementById('app')).scope().setUsers(content);
+            // var inside = "";
+            // for (var i = 0; i < content.length; i++) {
+            //     inside += '<button ng-click="setTarget(\''+content[i].username+'\')">'+content[i].username+' - '+content[i].status+'</button><br />'
+            // }
+            // document.getElementById('connectedusers').innerHTML = inside;
+
+            // $scope.setUsers(content);
+        // })
+    });
+    function emitTyping(){
+        // let username = document.getElementById('username').value;
+        let username = window.username;
+        if(username === '') username = undefined;
+        console.log('currently writing',username);
+        socket.emit('typing', {user: (username || 'some user')});
+    }
+    function log(msg){
+        setTimeout(()=>{
+            console.log(msg || 'log')
+        }, 500);
+    }
+    </script>
+
+    <script>
+        var Chat = angular.module("Chat", []);
+        Chat.controller("mainCtrl", function($scope, $http){
+            $scope.messages = [];
+            $scope.users = [];
+            $scope.userList = [];
+            $scope.typing = "";
+            $scope.userError = "";
+            $scope.messageError = "";
+            $scope.target = "";
+
+            socket.on('store', function(content){
+                console.log('angular socket', content);
+                $scope.setUsersList(content);
+            });
+
+            socket.on('user connection', function(msg){
+                document.getElementById('connection').innerHTML += ('<br />'+msg);
+                setTimeout(()=>{
+                    document.getElementById('connection').innerHTML = '';
+                }, 5000);
+            });
+
+            $scope.addUser = function(user){
+                $scope.users.push(user);
+            }
+            $scope.setUsers = function(users){
+                $scope.users = users;
+                console.log('setting users');
+                // console.log('scope is ',$scope);
+            }
+            $scope.setUsersList = function(content){
+                console.log('setting user list', content);
+                $scope.userList = content;
+            }
+            $scope.sendUsername = function(username){
+                $http.get('api/get/users/username').then(
+                    function(response){
+                        // $scope.setUsers(response.data);
+                        console.log(response);
+                    }, function(response){
+                        $scope.messageError = "Error getting messages for current user";
+                    }
+                )
+            }
+            $scope.setTarget = function(name){
+                $scope.target = name;
+                // $route.reload();
+            }
+            $scope.handleSubmit = function(e){
+                e.preventDefault();
+                var entry = $scope.input;
+                if(entry !== ''){
+                    $scope.input = "";
+                    $http({method: 'POST', url: 'api/post/messages', data: {message: entry, to: $scope.target, from: window.username}, cache: false}).then(
+                        function(response){
+                            console.log('message done', response);
+                        }, function(response){
+                            console.log('error', response)
+                        }
+                    )
+                }
+                // return false;
+            }
+
+            $http.get('api/get/users').then(
+                function(response){
+                    // resposnse success
+                    $scope.setUsers(response.data)
+                    console.log("HTTP GET SUCCESS", response.data);
+                }, function(response){
+                    // response failed
+                    $scope.userError = "Error getting users";
+                    console.log("HTTP GET FAILED", response);
+                }
+            )
+            $http.get('api/get/messages').then(
+                function(response){
+                    // resposnse success
+                    $scope.messages = response.data;
+                    console.log("HTTP GET SUCCESS", response.data);
+                }, function(response){
+                    // response failed
+                    $scope.messageError = "Error getting messages";
+                    console.log("HTTP GET FAILED", response);
+                }
+            );
+
+        });
+    </script>
+    <script type="text/javascript">
+        var promptFunc = function(){
+            var box = prompt('Please enter username');
+
+            if(box == null || box == ''){
+                promptFunc();
+            } else {
+                window.username = box;
+                // $scope.currentUser = window.username;
+                socket.emit('username', {username: username});
+            }
+        }
+        promptFunc();
+    </script>
+</body>
+</html>

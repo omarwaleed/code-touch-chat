@@ -1,11 +1,10 @@
 const React = require('react');
 const ReactDOM = require('react-dom');
 const axios = require('axios');
-const socket = require('socket.io');
+// const io = require('./socket.io.min.js');
+const io = require('socket.io-client');
 
 class App extends React.Component {
-
-	let socket = io();
 
 	constructor(){
 		super();
@@ -13,6 +12,7 @@ class App extends React.Component {
 	        everyone: [],
 	        selected: ''
 	    };
+		let socket = io();
 		this.handleSubmit = this.handleSubmit.bind(this);
 	}
 
@@ -27,9 +27,9 @@ class App extends React.Component {
 		} else {
 			console.log('define',this.state[this.state.selected], this.state.selected);
 			if(this.state[this.state.selected] === undefined){
-				this.setState({this.state[this.state.selected]: [{sender: "you", msg: m}]})
+				// this.setState({ this.state[this.state.selected]: [ {sender: "you", msg: m} ] })
 			} else {
-				this.setState({this.state[this.state.selected]: ([...this.state[this.state.selected]].push({sender: "you", msg:m}))});
+				// this.setState({this.state[this.state.selected]: ([...this.state[this.state.selected]].push({sender: "you", msg:m}))});
 			}
 			document.getElementById('messages').innerHTML += ('<li><h3>PRIVATE You: '+m+'</h3></li>');
 			// this.state[this.state.selected] = [...this.state[this.state.selected]].push({sender: "you", msg:m}) || [{sender: "you", msg: m}];
@@ -40,56 +40,58 @@ class App extends React.Component {
 		// return false;
 	}
 
-	socket.on('chat message', function(msg){
-		// console.log('got message', msg)
-		var sender = (msg.for || 'anon')
-		var isPrivate = (msg.to !== undefined)? "PRIVATE ": "";
-		$('#messages').append($('<li>').text(isPrivate + sender + ": "+msg.message));
-		console.log(state.everyone);
-		let array = [...this.state.everyone, {sender: sender, msg: msg.message}]
-		this.setState({everyone: array});
-	});
-	socket.on('typing', function(content){
-		console.log('typing received',content.user);
-		document.getElementById('typing').innerHTML = (content.user+' is typing');
-		setTimeout(function(){
-			document.getElementById('typing').innerHTML = '';
-			// console.log('hidden');
-		}, 5000)
-	});
-	socket.on('user connection', function(msg){
-		document.getElementById('connection').innerHTML += ('<br />'+msg);
-		setTimeout(()=>{
-			document.getElementById('connection').innerHTML = '';
-		}, 5000);
-	});
-	socket.on('users', function(data){
-		let out = '';
-		for (var i = 0; i < data.length; i++) {
-			out += `<li onclick="setSelected('${data[i]}')">`+data[i]+'</li>'
-		}
-		document.getElementById('connectedusers').innerHTML = out;
-		// console.log('sockets are ', data);
-	});
+	componentDidMount(){
+		socket.on('chat message', function(msg){
+			// console.log('got message', msg)
+			var sender = (msg.for || 'anon')
+			var isPrivate = (msg.to !== undefined)? "PRIVATE ": "";
+			$('#messages').append($('<li>').text(isPrivate + sender + ": "+msg.message));
+			console.log(state.everyone);
+			let array = [...this.state.everyone, {sender: sender, msg: msg.message}]
+			this.setState({everyone: array});
+		});
+		socket.on('typing', function(content){
+			console.log('typing received',content.user);
+			document.getElementById('typing').innerHTML = (content.user+' is typing');
+			setTimeout(function(){
+				document.getElementById('typing').innerHTML = '';
+				// console.log('hidden');
+			}, 5000)
+		});
+		socket.on('user connection', function(msg){
+			document.getElementById('connection').innerHTML += ('<br />'+msg);
+			setTimeout(()=>{
+				document.getElementById('connection').innerHTML = '';
+			}, 5000);
+		});
+		socket.on('users', function(data){
+			let out = '';
+			for (var i = 0; i < data.length; i++) {
+				out += `<li onclick="setSelected('${data[i]}')">`+data[i]+'</li>'
+			}
+			document.getElementById('connectedusers').innerHTML = out;
+			// console.log('sockets are ', data);
+		});
+	}
 
 	render(){
 		return (
 			<div>
-				<div style="display: flex; flex: 1; width: 100%; space-between: center;">
-			        <div style="flex: 7;">
-			            <span style="font-size: 30px;">Messages</span>
+				<div style={{display: 'flex', flex: 1, width: '100%', spaceBetween: 'center'}}>
+			        <div style={{flex: 7}}>
+			            <span style={{fontSize: '30px'}}>Messages</span>
 			            <ul id="messages"></ul>
 			            <h1 id="typing"></h1>
 			            <h1 id="connection"></h1>
 			        </div>
-			        <div style="flex: 3; align-content: center;">
-			            <span style="font-size: 30px;" onclick="clearSelected()">Users</span>
-			            <ul id="connectedusers" style="margin-top: 20px;">
+			        <div style={{flex: 3, alignContent: 'center'}}>
+			            <span style={{fontSize: '30px'}} onClick='clearSelected()'>Users</span>
+			            <ul id="connectedusers" style={{marginTop: '20px'}}>
 			            </ul>
 			        </div>
 			    </div>
 			    <form action="" id="form">
-			        <input type="text" id="username" value="" placeholder="Username"/><input id="m" autocomplete="off" onchange="emitTyping()" /><button>Send</button>
+			        <input type="text" id="username" value="" placeholder="Username" display='none'/><input id="m" autocomplete="off" onchange="emitTyping()" /><button>Send</button>
 			    </form>
 			</div>
 		)
